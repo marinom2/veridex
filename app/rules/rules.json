@@ -1,0 +1,7 @@
+{
+    "and": [
+      { "field": "VISDAT", "op": "NOT_NULL" },
+      { "field": "VISTYPE", "op": "EQ", "value": "On-Site" },
+      { "field": "DRUG", "op": "EQ", "value": "Mono" }
+    ]
+  }

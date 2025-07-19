@@ -1,0 +1,54 @@
+/* RuleBuilder.css */
+
+.rule-builder-container {
+    display: flex;
+    padding: 20px;
+    font-family: Arial, sans-serif;
+    gap: 40px;
+  }
+  
+  .left-panel, .right-panel {
+    flex: 1;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    padding: 20px;
+  }
+  
+  input, select {
+    display: block;
+    margin-bottom: 10px;
+    padding: 8px;
+    width: 100%;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+  }
+  
+  button {
+    padding: 8px 14px;
+    background-color: #4caf50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  
+  .delete-btn {
+    margin-left: 10px;
+    background-color: #e53935;
+  }
+  
+  pre {
+    background-color: #eee;
+    padding: 10px;
+    border-radius: 5px;
+    font-size: 14px;
+    overflow-x: auto;
+  }
+  
+  .query-builder-placeholder {
+    margin-top: 20px;
+    padding: 15px;
+    background-color: #fff3cd;
+    border-left: 5px solid #ffeeba;
+    border-radius: 5px;
+  }
