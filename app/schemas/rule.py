@@ -1,29 +1,29 @@
 from pydantic import BaseModel
-from typing import List, Union, Literal
+from typing import List, Union
+
 
 class RuleBlock(BaseModel):
     id: str
     field: str
     operator: str
-    value: str
+    value: Union[str, int, float]
+
 
 class RuleGroup(BaseModel):
     id: str
-    logic: Literal["AND", "OR"]
-    children: List[Union["RuleBlock", "RuleGroup"]]
+    logic: str  # "AND" / "OR"
+    children: List[Union["RuleGroup", RuleBlock]]
 
-    class Config:
-        arbitrary_types_allowed = True
-        schema_extra = {
-            "example": {
-                "id": "group-1",
-                "logic": "AND",
-                "children": []
-            }
-        }
 
+# Needed for recursive models
 RuleGroup.update_forward_refs()
 
-class RuleGroupWithSQL(BaseModel):
-    rules: RuleGroup
+
+class RuleSaveRequest(BaseModel):
+    ruleGroup: RuleGroup
+    sqlPreview: str
+
+
+class SQLTemplateSaveRequest(BaseModel):
+    rule_id: str
     sql: str
