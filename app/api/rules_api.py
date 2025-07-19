@@ -1,32 +1,40 @@
 from fastapi import APIRouter, HTTPException
-import json
 from pathlib import Path
+import json
+import os
+
+from app.schemas.rule import RuleSaveRequest, SQLTemplateSaveRequest
 
 router = APIRouter()
 
 RULES_FILE = Path("rules.json")
-SQL_TEMPLATE_FILE = Path("sql_templates.json")
+SQL_FILE = Path("sql_templates.json")
 
 @router.post("/rules/save")
-def save_rules(data: dict):
+async def save_rules(payload: RuleSaveRequest):
     try:
-        rules = data.get("rules")
-        sql = data.get("sql")
         with open(RULES_FILE, "w") as f:
-            json.dump({"rules": rules}, f)
-        if sql:
-            with open(SQL_TEMPLATE_FILE, "w") as f:
-                json.dump({"sql": sql}, f)
-        return {"status": "saved"}
+            json.dump(payload.ruleGroup.dict(), f, indent=2)
+
+        with open(SQL_FILE, "w") as f:
+            json.dump({"sql_preview": payload.sqlPreview}, f, indent=2)
+
+        return {"message": "Saved successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.get("/rules/load")
-def load_rules():
+async def load_rules():
     try:
+        rules = {}
+        sql = {}
         if RULES_FILE.exists():
-            with open(RULES_FILE) as f:
-                return json.load(f)
-        return {"rules": None}
+            with open(RULES_FILE, "r") as f:
+                rules = json.load(f)
+        if SQL_FILE.exists():
+            with open(SQL_FILE, "r") as f:
+                sql = json.load(f)
+        return {"ruleGroup": rules, "sqlPreview": sql.get("sql_preview", "")}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
