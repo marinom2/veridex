@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Union, Literal, Optional
+from typing import List, Union, Literal
 
 class RuleBlock(BaseModel):
     id: str
@@ -12,11 +12,18 @@ class RuleGroup(BaseModel):
     logic: Literal["AND", "OR"]
     children: List[Union["RuleBlock", "RuleGroup"]]
 
+    class Config:
+        arbitrary_types_allowed = True
+        schema_extra = {
+            "example": {
+                "id": "group-1",
+                "logic": "AND",
+                "children": []
+            }
+        }
+
 RuleGroup.update_forward_refs()
 
-class SQLTemplateSaveRequest(BaseModel):
+class RuleGroupWithSQL(BaseModel):
+    rules: RuleGroup
     sql: str
-
-class RuleSaveRequest(BaseModel):
-    ruleGroup: RuleGroup
-    sqlPreview: str
