@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios"; 
+import axios from "axios";
 import { v4 as uuidv4 } from "uuid";
-
 
 interface FieldDef {
   name: string;
   label: string;
-  type: string;
+  type: "string" | "number" | "date";
   options?: string[];
 }
 
@@ -23,7 +22,7 @@ interface RuleGroup {
   children: (RuleBlock | RuleGroup)[];
 }
 
-const operatorMap: Record<string, string[]> = {
+const operatorMap: Record<FieldDef["type"], string[]> = {
   string: ["EQ", "NEQ", "IN"],
   number: ["EQ", "NEQ", "GT", "LT"],
   date: ["EQ", "NEQ", "BEFORE", "AFTER"],
@@ -39,13 +38,17 @@ export const RuleBuilder: React.FC = () => {
 
   useEffect(() => {
     async function fetchInitialData() {
-      const fieldRes = await axios.get("/fields");
-      setFields(fieldRes.data);
+      try {
+        const fieldRes = await axios.get("/fields");
+        setFields(fieldRes.data);
 
-      const rulesRes = await axios.get("/rules/load");
-      const saved = rulesRes.data.rules;
-      if (saved) {
-        setRootGroup(saved);
+        const rulesRes = await axios.get("/rules/load");
+        if (rulesRes.data?.rules) {
+          setRootGroup(rulesRes.data.rules);
+        }
+      } catch (err) {
+        console.error("Failed to fetch initial data", err);
+        alert("❌ Failed to load initial field or rule data");
       }
     }
 
@@ -71,6 +74,21 @@ export const RuleBuilder: React.FC = () => {
     setRootGroup((prev) => insertIntoGroup(prev, groupId, newGroup));
   };
 
+  const deleteGroup = (group: RuleGroup, groupId: string): RuleGroup => {
+    return {
+      ...group,
+      children: group.children
+        .map((child) => {
+          if ("children" in child) {
+            if (child.id === groupId) return null;
+            return deleteGroup(child, groupId);
+          }
+          return child;
+        })
+        .filter(Boolean) as (RuleGroup | RuleBlock)[],
+    };
+  };
+
   const insertIntoGroup = (
     group: RuleGroup,
     targetId: string,
@@ -81,12 +99,9 @@ export const RuleBuilder: React.FC = () => {
     }
     return {
       ...group,
-      children: group.children.map((child) => {
-        if ("children" in child) {
-          return insertIntoGroup(child, targetId, newChild);
-        }
-        return child;
-      }),
+      children: group.children.map((child) =>
+        "children" in child ? insertIntoGroup(child, targetId, newChild) : child
+      ),
     };
   };
 
@@ -95,17 +110,12 @@ export const RuleBuilder: React.FC = () => {
     groupId: string,
     logic: "AND" | "OR"
   ): RuleGroup => {
-    if (group.id === groupId) {
-      return { ...group, logic };
-    }
+    if (group.id === groupId) return { ...group, logic };
     return {
       ...group,
-      children: group.children.map((child) => {
-        if ("children" in child) {
-          return updateGroupLogic(child, groupId, logic);
-        }
-        return child;
-      }),
+      children: group.children.map((child) =>
+        "children" in child ? updateGroupLogic(child, groupId, logic) : child
+      ),
     };
   };
 
@@ -129,18 +139,25 @@ export const RuleBuilder: React.FC = () => {
     return {
       ...group,
       children: group.children
-        .map((child) => {
-          if ("children" in child) return deleteRule(child, ruleId);
-          return child;
-        })
-        .filter((child) => child.id !== ruleId),
+        .map((child) =>
+          "children" in child ? deleteRule(child, ruleId) : child
+        )
+        .filter((child) => "id" in child && child.id !== ruleId),
     };
+  };
+
+  const formatValue = (field: FieldDef | undefined, value: string): string => {
+    if (!field) return `'${value}'`;
+    if (field.type === "number") return value;
+    if (field.type === "date") return `'${value}'`;
+    return `'${value.replace(/'/g, "''")}'`;
   };
 
   const getSQL = (group: RuleGroup): string => {
     const clauses = group.children.map((child) => {
       if ("children" in child) return `(${getSQL(child)})`;
-      return `${child.field} ${child.operator} '${child.value}'`;
+      const field = fields.find((f) => f.name === child.field);
+      return `${child.field} ${child.operator} ${formatValue(field, child.value)}`;
     });
     return clauses.join(` ${group.logic} `);
   };
@@ -212,7 +229,9 @@ export const RuleBuilder: React.FC = () => {
         />
 
         <button
-          onClick={() => setRootGroup((prev) => deleteRule(prev, rule.id))}
+          onClick={() =>
+            setRootGroup((prev) => deleteRule(prev, rule.id))
+          }
           className="text-red-500"
         >
           ❌
@@ -223,24 +242,42 @@ export const RuleBuilder: React.FC = () => {
 
   const renderGroup = (group: RuleGroup) => (
     <div key={group.id} className="border-l-2 pl-4 my-4">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 mb-2">
         <label className="font-bold">Logic:</label>
         <select
           value={group.logic}
           onChange={(e) =>
-            setRootGroup(updateGroupLogic(rootGroup, group.id, e.target.value as "AND" | "OR"))
+            setRootGroup((prev) =>
+              updateGroupLogic(prev, group.id, e.target.value as "AND" | "OR")
+            )
           }
           className="border p-1 rounded"
         >
           <option value="AND">AND</option>
           <option value="OR">OR</option>
         </select>
-        <button onClick={() => addRule(group.id)} className="bg-blue-500 text-white px-2 py-1 rounded">
+        <button
+          onClick={() => addRule(group.id)}
+          className="bg-blue-500 text-white px-2 py-1 rounded"
+        >
           ➕ Rule
         </button>
-        <button onClick={() => addGroup(group.id)} className="bg-green-500 text-white px-2 py-1 rounded">
+        <button
+          onClick={() => addGroup(group.id)}
+          className="bg-green-500 text-white px-2 py-1 rounded"
+        >
           ➕ Group
         </button>
+        {group.id !== rootGroup.id && (
+          <button
+            onClick={() =>
+              setRootGroup((prev) => deleteGroup(prev, group.id))
+            }
+            className="text-red-500 ml-auto"
+          >
+            🗑️ Delete Group
+          </button>
+        )}
       </div>
 
       <div className="ml-4 space-y-2">
@@ -259,16 +296,14 @@ export const RuleBuilder: React.FC = () => {
       <div className="mt-6">
         <h3 className="font-semibold">🧮 SQL Preview:</h3>
         <pre className="bg-gray-100 p-4 rounded text-sm">
-          {getSQL(rootGroup) || "-- No rules --"}
+          {getSQL(rootGroup) || "-- No rules defined --"}
         </pre>
-        <div className="flex gap-2 mt-4">
-          <button
-            onClick={saveRulesAndSQL}
-            className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700"
-          >
-            💾 Save Rules & SQL
-          </button>
-        </div>
+        <button
+          onClick={saveRulesAndSQL}
+          className="mt-4 bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700"
+        >
+          💾 Save Rules & SQL
+        </button>
       </div>
     </div>
   );
