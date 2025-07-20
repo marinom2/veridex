@@ -1,0 +1,11 @@
+[
+  {
+    "name": "VISTYPE",
+    "label": "Visit Type",
+    "type": "string",
+    "options": [
+      "IN_PERSON",
+      "REMOTE"
+    ]
+  }
+]

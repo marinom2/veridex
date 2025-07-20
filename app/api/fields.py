@@ -1,16 +1,10 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from app.schemas.field import FieldDefinition
 import json
 import os
 
 router = APIRouter()
 FIELDS_FILE = "fields.json"
-
-class FieldDefinition(BaseModel):
-    name: str
-    label: str
-    type: str  # "string", "date", "number"
-    options: list[str] | None = None  # optional dropdown
 
 def load_fields():
     if os.path.exists(FIELDS_FILE):
